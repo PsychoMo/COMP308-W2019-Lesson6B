@@ -55,12 +55,26 @@ module.exports.displayLoginPage = (req, res, next) => {
   }
 };
 
-module.exports.processLoginPage = passport.authenticate("local", {
-  successRedirect: "/contact-list",
-  failureRedirect: "/login",
-  failureFlash: "loginMessage",
-  failureMessage: "Authentication Error"
-});
+module.exports.processLoginPage = (req, res, next) => {
+  passport.authenticate("local", (err, user, info) => {
+    // server error?
+    if (err) {
+      return next(err);
+    }
+    // is there a user login error?
+    if (!user) {
+      req.flash("loginMessage", "Authentication Error");
+      return res.redirect("/login");
+    }
+    req.logIn(user, err => {
+      // server error?
+      if (err) {
+        return next(err);
+      }
+      return res.redirect("/contact-list");
+    });
+  })(req, res, next);
+};
 
 module.exports.displayRegisterPage = (req, res, next) => {
   if (!req.user) {
@@ -78,8 +92,9 @@ module.exports.processRegisterPage = (req, res, next) => {
   // define a new user object
   let newUser = new User({
     username: req.body.username,
+    //password: req.body.password
     email: req.body.email,
-    dispalyName: req.body.dispalyName
+    displayName: req.body.displayName
   });
 
   User.register(newUser, req.body.password, err => {
@@ -90,7 +105,7 @@ module.exports.processRegisterPage = (req, res, next) => {
           "registerMessage",
           "Registration Error: User Already Exists!"
         );
-        console.log("Error: User already exists!");
+        console.log("Error: User Already Exists!");
       }
       return res.render("auth/register", {
         title: "Register",
@@ -98,7 +113,7 @@ module.exports.processRegisterPage = (req, res, next) => {
         displayName: req.user ? req.user.displayName : ""
       });
     } else {
-      // if no error exists then registration successful
+      // if no error exists, then registration is successful
 
       // redirect the user
       return passport.authenticate("local")(req, res, () => {
